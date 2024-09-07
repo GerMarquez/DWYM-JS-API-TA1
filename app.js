@@ -550,6 +550,131 @@ class LocalStorageManager {
         }
     }
 }
+// *** Clase APIManager
+// Función: Lógica para llamados a backend mediante APIs
+class APIManager{
+    static _api_url = 'http://localhost:3000/api/tasks';
+
+
+    static get api_url() {
+        return APIManager._api_url;
+    }
+    static set api_url(value) {
+        APIManager._api_url = value;
+    }
+
+    static async #tasksGET(){
+        try {
+            const response = await fetch(this.api_url);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error:', error);
+            throw error;
+        }
+    }
+
+    static async loadTaskListFromBackend (){
+        Task.ID = 0;
+        const taskListData = await this.#tasksGET();
+        taskListData.forEach(taskData => {
+            TaskManager.addNewTask(
+                taskData.id,
+                taskData.title,
+                taskData.description,
+                taskData.assignedTo,
+                taskData.priority,
+                taskData.endDate,
+                taskData.status,
+                false
+            );
+        });
+    }
+
+    static async taskPOST(data) {
+        const { title, description, assignedTo, startDate, endDate, status, priority, comments } = data;
+        const rawResponse = await fetch(this.api_url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title,
+                description,
+                assignedTo,
+                startDate,
+                endDate,
+                status,
+                priority,
+                comments
+            })
+        });
+    
+        if (!rawResponse.ok) {
+            throw new Error(`HTTP error! status: ${rawResponse.status}`);
+        }
+    
+        const content = await rawResponse.json();
+        return content;
+    }
+
+    static async taskDELETE(id){
+        const temp_url = `${this.api_url}/${id}`
+        try {
+            const response = await fetch(temp_url, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+/*             if (response.status === 204) {
+                // No content to parse, return a success message or status
+                console.log('Deletion successful, no content returned.');
+                return;
+            } */
+        }
+        catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    static async taskEDIT(id){
+        const temp_url = `${this.api_url}/${id}`
+        try{
+            const response = await fetch(temp_url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            // body: JSON.stringify(data)
+            body: JSON.stringify(
+                {
+                "title": "Task 4 Edited",
+                "description": "Description for Task 4",
+                "assignedTo": "EditedName",
+                "startDate": "01/01/2024",
+                "endDate": "31/12/2024",
+                "status": "Done",
+                "priority": "High",
+                "comments": []
+                }
+            )}
+            );
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+        }
+        catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
 // #endregion
 
 // #region *** EVENTOS ***
@@ -813,8 +938,9 @@ HTML_CHANGE_TASK_MODAL_BUTTON_DELETE_TASK.addEventListener("click", function (ev
 
 // Para cargar.
 window.addEventListener("DOMContentLoaded", function () {
-    LocalStorageManager.loadIdOfTaskClassFromStorage();
-    LocalStorageManager.loadTaskListsFromStorage();
+    //LocalStorageManager.loadIdOfTaskClassFromStorage();
+    //LocalStorageManager.loadTaskListsFromStorage();
+    APIManager.loadTaskListFromBackend();
 });
 
 // Para guardar.
