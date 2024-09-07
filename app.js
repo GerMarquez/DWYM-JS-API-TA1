@@ -1,5 +1,19 @@
 // #region *** VARIABLES GLOBALES ***
 
+// #region *** AUX FUNCION GLOBAL ***
+
+function getCurrentDateFormatted() {
+    const now = new Date(); // Get the current date and time
+
+    // Extract day, month, and year
+    const day = String(now.getDate()).padStart(2, '0'); // Pad single-digit days with leading zero
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based, so add 1 and pad
+    const year = now.getFullYear(); // Get the full year
+
+    // Format the date as "dd/mm/yyyy"
+    return `${day}-${month}-${year}`;
+}
+
 // *** ELEMENTOS DEL HTML
 
 // -> Encabezado.
@@ -312,6 +326,7 @@ class TaskManager {
         }
         list.push(newTask);
         container.appendChild(newTask.HTMLCard);
+
     };
 
     // Elimina la tarea a editar de backend y de frontend.
@@ -588,13 +603,12 @@ class APIManager{
                 taskData.assignedTo,
                 taskData.priority,
                 taskData.endDate,
-                taskData.status,
-                false
+                taskData.status
             );
         });
     }
 
-    static async taskPOST(data) {
+    static async #taskPOST(data) {
         const { title, description, assignedTo, startDate, endDate, status, priority, comments } = data;
         const rawResponse = await fetch(this.api_url, {
             method: 'POST',
@@ -619,6 +633,23 @@ class APIManager{
     
         const content = await rawResponse.json();
         return content;
+    }
+
+    static async addTaskToBackend(data){
+        try {
+            const taskToAdd = await APIManager.#taskPOST(data);
+            TaskManager.addNewTask(
+                taskToAdd.id,
+                taskToAdd.title,
+                taskToAdd.description,
+                taskToAdd.assignedTo,
+                taskToAdd.priority,
+                taskToAdd.endDate,
+                taskToAdd.status
+            );
+        } catch (error) {
+            console.error('Error adding task:', error);
+        }
     }
 
     static async taskDELETE(id){
@@ -870,19 +901,23 @@ HTML_CONTAINER_DONE.addEventListener("drop", function (event) {
 // *** MODAL AGREGAR TAREA
 
 // -> Botón ACEPTAR en modo Agregar tarea.
-HTML_ADD_TASK_MODAL_BUTTON_ACCEPT_TASK.addEventListener("click", function (event) {
-    // Para evitar el submit.
+HTML_ADD_TASK_MODAL_BUTTON_ACCEPT_TASK.addEventListener("click", async function (event) {
+    // Prevenir default
     event.preventDefault();
 
-    TaskManager.addNewTask(
-        -1,
-        HTML_TASK_MODAL_INPUT_TITLE.value,
-        HTML_TASK_MODAL_INPUT_DESCRIPTION.value,
-        HTML_TASK_MODAL_INPUT_ASSIGNED.value,
-        HTML_TASK_MODAL_INPUT_PRIORITY.value,
-        HTML_TASK_MODAL_INPUT_LIMIT_DATE.value,
-        HTML_TASK_MODAL_INPUT_STATE.value
-    );
+    const taskData = {
+        title: HTML_TASK_MODAL_INPUT_TITLE.value,
+        description: HTML_TASK_MODAL_INPUT_DESCRIPTION.value,
+        assignedTo: HTML_TASK_MODAL_INPUT_ASSIGNED.value,
+        startDate: getCurrentDateFormatted(),
+        endDate: HTML_TASK_MODAL_INPUT_LIMIT_DATE.value,
+        status: HTML_TASK_MODAL_INPUT_STATE.value,
+        priority: HTML_TASK_MODAL_INPUT_PRIORITY.value,
+        comments: []
+    };
+
+    APIManager.addTaskToBackend(taskData);
+
     showPrincipalPage();
     cleanInputs();
 });
@@ -944,8 +979,8 @@ window.addEventListener("DOMContentLoaded", function () {
 });
 
 // Para guardar.
-window.addEventListener("beforeunload", function (event) {
+/* window.addEventListener("beforeunload", function (event) {
     LocalStorageManager.saveIdOfTaskClassToStorage();
     LocalStorageManager.saveTaskListsToStorage();
-});
+}); */
 // #endregion
