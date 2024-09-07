@@ -336,6 +336,8 @@ class TaskManager {
         let container;
         let list;
 
+        APIManager.deleteTaskFromBackend(taskToDeleteId);
+
         switch (taskToDeleteState) {
             case "Backlog":
                 container = HTML_CONTAINER_BACKLOG;
@@ -370,8 +372,24 @@ class TaskManager {
     };
 
     // Edita todos los atributos de la tarea actual que se está editando; la cambia de lugar en backend y frontend si corresponde.
-    static editTaskToEdit(title, description, assigned, priority, limitDate, state) {
-        this.#TASK_TO_EDIT.updateTask(title, description, assigned, priority, limitDate, state);
+    static async editTaskToEdit(title, description, assigned, priority, limitDate, state) {
+
+        const taskData = {
+            id: this.#TASK_TO_EDIT.id,
+            title: title,
+            description: description,
+            assignedTo: assigned,
+            startDate: getCurrentDateFormatted(),
+            endDate: limitDate,
+            status: state,
+            priority: priority,
+            comments: []
+        };
+    
+        const editResponse = await APIManager.editTaskOnBackend(taskData);
+
+        this.#TASK_TO_EDIT.updateTask(editResponse.title, editResponse.description, editResponse.assignedTo,
+            editResponse.priority, editResponse.endDate, editResponse.status);
         this.moveTaskToEditToCorrectList();
         this.#moveTaskToEditToCorrectContainer();
     };
@@ -594,7 +612,7 @@ class APIManager{
 
     static async loadTaskListFromBackend (){
         Task.ID = 0;
-        const taskListData = await this.#tasksGET();
+        const taskListData = await APIManager.#tasksGET();
         taskListData.forEach(taskData => {
             TaskManager.addNewTask(
                 taskData.id,
@@ -652,7 +670,7 @@ class APIManager{
         }
     }
 
-    static async taskDELETE(id){
+    static async #taskDELETE(id){
         const temp_url = `${this.api_url}/${id}`
         try {
             const response = await fetch(temp_url, {
@@ -664,18 +682,22 @@ class APIManager{
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
-/*             if (response.status === 204) {
-                // No content to parse, return a success message or status
-                console.log('Deletion successful, no content returned.');
+            if (response.status === 204) {
+                console.log('Deletion successful');
                 return;
-            } */
+            }
         }
         catch (error) {
             console.error('Error:', error);
         }
     }
 
-    static async taskEDIT(id){
+    static deleteTaskFromBackend(id){
+        APIManager.#taskDELETE(id);
+    }
+
+    static async #taskPUT(data){
+        const { id, title, description, assignedTo, startDate, endDate, status, priority, comments } = data;
         const temp_url = `${this.api_url}/${id}`
         try{
             const response = await fetch(temp_url, {
@@ -683,27 +705,38 @@ class APIManager{
             headers: {
                 'Content-Type': 'application/json'
             },
-            // body: JSON.stringify(data)
             body: JSON.stringify(
                 {
-                "title": "Task 4 Edited",
-                "description": "Description for Task 4",
-                "assignedTo": "EditedName",
-                "startDate": "01/01/2024",
-                "endDate": "31/12/2024",
-                "status": "Done",
-                "priority": "High",
-                "comments": []
+                "title": title,
+                "description": description,
+                "assignedTo": assignedTo,
+                "startDate": startDate,
+                "endDate": endDate,
+                "status": status,
+                "priority": priority,
+                "comments": comments
                 }
             )}
             );
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
+            else{
+                return response.json();
+            }
         }
         catch (error) {
             console.error('Error:', error);
         }
+    }
+
+    static async editTaskOnBackend(data){
+        try {
+            const editedTask = await APIManager.#taskPUT(data);
+            return editedTask;
+        } catch (error) {
+            console.error('Error adding task:', error);
+        } 
     }
 }
 // #endregion
